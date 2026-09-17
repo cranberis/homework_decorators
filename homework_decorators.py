@@ -1,30 +1,57 @@
 import os
-
 from datetime import datetime
 from functools import wraps
+from typing import Union, Callable
 
 from past_homework import calculate_salary
 
 # =============================================
-# ЗАДАНИЕ 1: Доработать декоратор logger
+# УНИВЕРСАЛЬНЫЙ ДЕКОРАТО LOGGER (Задания 1 и 2)
 # =============================================
 
-def logger(old_function):
+def logger(path_or_func: Union[str, Callable] = 'main.log'):
+    """Универсальный декоратор: работает и как @logger, и как @logger('file.log')"""
+    
+    # Случай 1: вызвали просто @logger (первый аргумент - это сама функция)
+    if callable(path_or_func):
+        func = path_or_func
+        path = 'main.log'
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            result = func(*args, **kwargs)
+            with open(path, 'a', encoding='utf-8') as f:
+                log = f"{stamp}-[{func.__name__}]-<{args=}>-<{kwargs=}>-<{result=}>\n"
+                f.write(log)
+            return result
+            
+        return wrapper
+    
+    # Случай 2: вызвали @logger('путь_к_файлу') (первый аргумент - это строка)
+    else:
+        path = path_or_func
+        
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                result = func(*args, **kwargs)
+                with open(path, 'a', encoding='utf-8') as f:
+                    log = f"{stamp}-[{func.__name__}]-<{args=}>-<{kwargs=}>-<{result=}>\n"
+                    f.write(log)
+                return result
+                
+            return wrapper
+            
+        return decorator
 
-    @wraps(old_function)
-    def new_function(*args, **kwargs):
-        stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        result = old_function(*args, **kwargs)
-        with open('main.log', 'a', encoding='utf-8') as f:
-            log = f"{stamp}-[{old_function.__name__}]-<{args=}>-<{kwargs=}>-<{result=}>\n"
-            f.write(log)
-        return result
 
-    return new_function
-
+# =============================================
+# ЗАДАНИЕ 1: Тесты для @logger без аргументов
+# =============================================
 
 def test_1():
-
     path = 'main.log'
     if os.path.exists(path):
         os.remove(path)
@@ -62,25 +89,8 @@ def test_1():
 
 
 # =============================================
-# ЗАДАНИЕ 2: Доработать параметризированный декоратор logger
+# ЗАДАНИЕ 2: Тесты для @logger('путь')
 # =============================================
-
-def logger_param(path):
-    
-    def __logger(old_function):
-        @wraps(old_function)
-        def new_function(*args, **kwargs):
-            stamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            result = old_function(*args, **kwargs)
-            with open(path, 'a', encoding='utf-8') as f:
-                log = f"{stamp}-[{old_function.__name__}]-<{args=}>-<{kwargs=}>-<{result=}>\n"
-                f.write(log)
-            return result
-
-        return new_function
-
-    return __logger
-
 
 def test_2():
     paths = ('log_1.log', 'log_2.log', 'log_3.log')
@@ -89,15 +99,15 @@ def test_2():
         if os.path.exists(path):
             os.remove(path)
 
-        @logger_param(path)
+        @logger(path)  # <-- Теперь используем logger вместо logger_param
         def hello_world():
             return 'Hello World'
 
-        @logger_param(path)
+        @logger(path)
         def summator(a, b=0):
             return a + b
 
-        @logger_param(path)
+        @logger(path)
         def div(a, b):
             return a / b
 
@@ -110,7 +120,6 @@ def test_2():
         summator(4.3, b=2.2)
 
     for path in paths:
-
         assert os.path.exists(path), f'файл {path} должен существовать'
 
         with open(path) as log_file:
@@ -122,14 +131,17 @@ def test_2():
             assert str(item) in log_file_content, f'{item} должен быть записан в файл'
 
 
+# =============================================
+# ЗАДАНИЕ 3: Применение к коду из прошлого ДЗ
+# =============================================
+
 if __name__ == '__main__':
     test_1()
     test_2()
-    # =============================================
-    # ЗАДАНИЕ 3: Применение написанного логгера на коде из прошлого д/з
-    # =============================================
+    
     if os.path.exists('calculate.log'):
         os.remove('calculate.log')
 
-    logged_generator = logger_param('calculate.log')(calculate_salary)
+    # <-- Теперь используем logger вместо logger_param
+    logged_generator = logger('calculate.log')(calculate_salary)
     logged_generator()
